@@ -1,0 +1,229 @@
+---
+title: "Culex Larvae Colorimetry"
+author: "Helle Aronson - Clément Vinauger"
+date: "2025-11-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+***NOTE***: This notebook produces the dotplots with boxplots and violin plots for each nutrient type presented in Figure 5 of Gregory *et al.*, Stage-specific divergence in larval thermal tolerance among populations of the *Culex pipiens* Assemblage. Journal of Medical Entomology, accepted for publication on June 18, 2026.
+
+Execution of the code requires the raw data contained in the files: 
+- "Culex_Protein_July2025.xlsx"
+- "Culex_Glycogen_July2025.xlsx"
+- "Culex_Total Lipids_July2025.xlsx"
+- "Culex_Triglycerides_July2025.xlsx"
+
+
+```{r, include=FALSE}
+#Load Packages#
+
+library(tidyverse)
+library(ggpubr)
+library(ggplot2)
+
+#Data Set working directory#
+#setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+```
+
+
+```{r, echo = FALSE}
+# Assign Colors for Populations using the color code from Ben
+
+##Assign Colors
+
+color.FL_MD <- "#DC9F1F" 
+color.ILAG_MD <- "#6FB4E7"
+color.ILBG_MD <- "#C27CA6"
+color.ME_MD <- "#3373B0"
+color.TX_MD <- "#ECE24E"
+
+
+
+color_order<- c("#DC9F1F","#6FB4E7", "#C27CA6", "#3373B0","#ECE24E")
+
+
+```
+
+# Total Protein
+
+
+```{r, echo = FALSE}
+#### Protein ########################################################
+######################################################################
+
+##Load data
+pf <- readxl::read_xlsx("Culex_Protein_July2025.xlsx")
+
+##Organize data
+pf$Population <- as.factor(pf$Nutrient)
+
+P<-pf %>% 
+  mutate(
+    Food = case_when(
+      grepl("MD", Population) ~ "FT1")) %>% ## FT1 is food fed in fritz lab during larval development 
+  mutate( 
+    Region_of_Origin = case_when(
+      grepl("FL", Population) ~ "FL",
+      grepl("ME", Population) ~ "ME",
+      grepl("AG", Population) ~ "AG",
+      grepl("BG", Population) ~ "BG",
+      grepl("TX", Population) ~ "TX"))
+
+P$Food<-as.factor(P$Food)  
+P$Region_of_Origin<-as.factor(P$Region_of_Origin) 
+P$Concentration<-as.numeric(P$Concentration) 
+
+P %>% filter(Food == 'FT1') -> P_MD  ###switch Food == '' between FT1 and FT2 to get the one you want ###
+
+##Create violin plot w/bargraph
+protein <- ggplot(P_MD, aes(x = Region_of_Origin, y = Concentration, fill = Nutrient)) +
+  geom_violin(trim = TRUE) +
+  labs(x = "Population", y = "Amount Protein per Weight per Individual Larvae (μg/mg)", fill = "Nutrient") +
+  scale_fill_manual(values= color_order) +
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") +
+  geom_boxplot(width=0.1) + geom_jitter(shape=16, position=position_jitter(0.2), color = "black")
+protein
+
+
+```
+
+
+
+# Glycogen
+
+
+```{r, echo = FALSE}
+### Glycogen ##########################################################
+######################################################################
+
+##Load data
+gf <- readxl::read_xlsx("Culex_Glycogen_July2025.xlsx")
+
+##Organize data
+gf$Population <- as.factor(gf$Nutrient)
+
+G<-gf %>% 
+  mutate(
+    Food = case_when(
+      grepl("MD", Population) ~ "FT1")) %>%
+  mutate( 
+    Region_of_Origin = case_when(
+      grepl("FL", Population) ~ "FL",
+      grepl("ME", Population) ~ "ME",
+      grepl("AG", Population) ~ "AG",
+      grepl("BG", Population) ~ "BG",
+      grepl("TX", Population) ~ "TX"))
+
+G$Food<-as.factor(G$Food)  
+G$Region_of_Origin<-as.factor(G$Region_of_Origin) 
+G$Concentration<-as.numeric(G$Concentration) 
+
+G %>% filter(Food == 'FT1') -> G_MD
+
+
+##Create violin plot w/bargraph
+g<-ggplot(G_MD, aes(x = Region_of_Origin, y = Concentration, fill = Nutrient)) +
+  geom_violin(trim = TRUE) +
+  labs(x = "Population", y = "Amount Glycogen per Weight per Individual Larve (μg/mg)", fill = "Nutrient") +
+  scale_fill_manual(values= color_order) +
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") +
+  geom_boxplot(width=0.1) + geom_jitter(shape=16, position=position_jitter(0.2), color = "black")
+g
+
+```
+
+
+
+# Total Lipids
+
+
+
+**FT1**
+
+```{r, echo = FALSE}
+### Total Lipids #################################################################
+##################################################################################
+
+##Load data
+lf <- readxl::read_xlsx("Culex_Total Lipids_July2025.xlsx")
+
+##Organize data
+lf$Population <- as.factor(lf$Nutrient)
+
+L<-lf %>% 
+  mutate(
+    Food = case_when(
+      grepl("MD", Population) ~ "FT1")) %>%
+  mutate( 
+    Region_of_Origin = case_when(
+      grepl("FL", Population) ~ "FL",
+      grepl("ME", Population) ~ "ME",
+      grepl("AG", Population) ~ "AG",
+      grepl("BG", Population) ~ "BG",
+      grepl("TX", Population) ~ "TX"))
+
+L$Food<-as.factor(L$Food)  
+L$Region_of_Origin<-as.factor(L$Region_of_Origin) 
+L$Concentration<-as.numeric(L$Concentration) 
+
+L %>% filter(Food == 'FT1') -> L_MD
+
+##Create violin plot w/bargraph
+l<-ggplot(L_MD, aes(x = Region_of_Origin, y = Concentration, fill = Nutrient)) +
+  geom_violin(trim = TRUE) +
+  labs(x = "Population", y = "Amount Total Lipids per Weight per Individual Larvae (μg/mg)", fill = "Nutrient") +
+  scale_fill_manual(values= color_order) +
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") +
+  geom_boxplot(width=0.1) + geom_jitter(shape=16, position=position_jitter(0.2), color = "black")
+l
+
+```
+
+
+# Triglycerides
+
+
+```{r, echo = FALSE}
+### Triglycerides #################################################################
+###################################################################################
+
+##Load data
+tf <- readxl::read_xlsx("Culex_Triglycerides_July2025.xlsx")
+
+##Organize data
+tf$Population <- as.factor(tf$Nutrient)
+
+Tf<-tf %>% 
+  mutate(
+    Food = case_when(
+      grepl("MD", Population) ~ "FT1")) %>%
+  mutate( 
+    Region_of_Origin = case_when(
+      grepl("FL", Population) ~ "FL",
+      grepl("ME", Population) ~ "ME",
+      grepl("AG", Population) ~ "AG",
+      grepl("BG", Population) ~ "BG",
+      grepl("TX", Population) ~ "TX"))
+
+Tf$Food<-as.factor(Tf$Food)  
+Tf$Region_of_Origin<-as.factor(Tf$Region_of_Origin) 
+Tf$Concentration<-as.numeric(Tf$Concentration)
+
+Tf %>% filter(Food == 'FT1') -> Tf_MD
+
+t<-ggplot(Tf_MD, aes(x = Region_of_Origin, y = Concentration, fill = Nutrient)) +
+  geom_violin(trim = TRUE) +
+  labs(x = "Population", y = "Amount Triglycerides per Weight per Individual Larvae (μg/mg)", fill = "Nutrient") +
+  scale_fill_manual(values= color_order) +
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5), legend.position = "none") +
+  geom_boxplot(width=0.1) + geom_jitter(shape=16, position=position_jitter(0.2), color = "black")
+t
+
+```
+
+

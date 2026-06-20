@@ -1,0 +1,147 @@
+---
+title: "Culex colorimetry analysis"
+author: "Helle Aronson - Clément Vinauger"
+date: "2026-06-19"
+output:
+  html_document:
+    df_print: paged
+---
+
+**Foreword:** This notebook contains the R script required to produce the PCA plot (and associated statistical analyses) presented in figure 5 of Gregory *et al.*, Stage-specific divergence in larval thermal tolerance among populations of the *Culex pipiens* Assemblage. Journal of Medical Entomology, accepted for publication on June 18, 2026.
+
+Execution of the code requires the raw data contained in the file: "Culex_Colorimetry_Data - Gregory et al 2026.xlsx"
+
+### Loading required packages
+
+```{r message=FALSE, warning = FALSE}
+
+# If needed set the working directory to the folder where the notebook and data file are saved. 
+#setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+library(tidyverse)
+library(readxl)
+library(lme4)
+library(emmeans)
+library(ggfortify)
+library(ggbiplot)
+library(dplyr)
+
+```
+
+### Import the merged dataset for GLM and multivariate analyses 
+
+```{r}
+All_data <- readxl::read_xlsx("Culex_Colorimetry_Data - Gregory et al 2026.xlsx")
+All_data$Individuals <- as.factor(seq(1:nrow(All_data)))
+```
+
+### Define the color scheme
+
+```{r}
+color.FL_MD <- "#DC9F1F" 
+color.ILAG_MD <- "#6FB4E7"
+color.ILBG_MD <- "#C27CA6"
+color.ME_MD <- "#3373B0"
+color.TX_MD <- "#ECE24E"
+
+color_order<- c("#DC9F1F","#6FB4E7", "#C27CA6", "#3373B0","#ECE24E")
+```
+
+## PCA analysis
+
+```{r}
+All_data %>% select(Protein:Triglyceride, Individuals, Population,) %>%
+  drop_na() -> pca_data
+
+pca_data %>% mutate(
+  Food = as.factor(case_when(
+    grepl("FT1", Population) ~ "MD"))) -> pca_data
+
+pca_data %>% filter(Food == 'MD') -> pca_MD
+
+MD_pca_results <- prcomp(pca_MD[,1:4])
+summary(MD_pca_results)
+
+ggbiplot(MD_pca_results, obs.scale = 1, var.scale = 1,
+              groups = pca_MD$Population, ellipse = T) +
+        scale_color_manual(values = color_order[seq(1,length(color_order))]) +
+      scale_fill_manual(values = color_order[seq(1,length(color_order))]) +
+  theme_minimal()
+```
+
+**Summary**: PC1 explains 68.26% of the variance and PC2 17.91% of the variance. Together, they explain 86.17% of the variance. Effects along PC1 are mostly driven by protein content and effects along PC2 by Total lipids. 
+
+*Note*:The separation between state-populations appears to be driven by lipid/triglyceride content but the separation between above and below ground forms seems to be driven by the protein content. Also, note a good amount of overlap between the Texas, Maine, and Below Ground populations.  
+
+
+## Generalized Linear Models
+
+### Data preparation
+```{r}
+All_data_longer <- All_data %>% pivot_longer(!c(Population, ID, Individuals), 
+                                             names_to = "Nutrients", 
+                                             values_to = "Concentration") %>% 
+                  mutate(
+  Food = case_when(
+    grepl("FT1", Population) ~ "MD")) %>%
+  mutate( 
+    Region_of_Origin = case_when(
+      grepl("FL", Population) ~ "FL",
+      grepl("ME", Population) ~ "ME",
+      grepl("AG", Population) ~ "AG",
+      grepl("BG", Population) ~ "BG",
+      grepl("TX", Population) ~ "TX"))
+```
+
+### Global Model selection
+
+First, comparison between additive and interactive models for an analysis that includes *all* the data. 
+
+```{r}
+model_no_interaction <- glm(Concentration~Region_of_Origin+Nutrients, data= All_data_longer)
+model_interactions <- glm(Concentration~Region_of_Origin*Nutrients, data= All_data_longer)
+
+anova(model_no_interaction, model_interactions, test="LRT")
+```
+**Summary:** There is a significant effect of considering the interaction between the food type and the region of origin. The additive model's AIC is 1438, the interactive model's AIC is 1396. Interactions between variables thus explains better the variability in the data.
+
+### Model summary and *post-hoc* pairwise comparisons 
+
+
+```{r}
+All_data_longer %>% filter(Food == 'MD') -> MD_data_longer
+model_MD_food <- glm(Concentration~Region_of_Origin*Nutrients, data= MD_data_longer)
+summary(model_MD_food)
+```
+
+**Summary:**
+
+- The AG and TX origins are significant predictors of the nutrient content.
+- Only lipids seem to significantly inform differences between populations.
+- The interactions between specific nutrients and regions of origin are also significant predictors. 
+
+**Note:** Pairwise comparisons can be run to inform on specific contrasts. For readability, the code below subsets only the pairwise comparisons that are significant. Any pairwise comparison not listed can be assumed as non significant. The exact p-values for non-significant comparisons can be found in the object *emmMD*. 
+
+```{r}
+emmMD <- emmeans(model_MD_food, pairwise~Nutrients*Region_of_Origin) 
+pairs_emmMD <- emmMD$contrasts
+significant_contrastsMD <- as.data.frame(pairs_emmMD) |> subset(p.value < 0.05)
+significant_contrastsMD
+
+NS_contrastsMD <- as.data.frame(pairs_emmMD) |> subset(p.value > 0.05)
+NS_contrastsMD
+```
+
+### Stacked bar plots 
+
+```{r}
+All_data_longer %>% group_by(Population, Individuals) %>%
+  mutate(sum_nut = sum(Concentration)) %>%
+  mutate(prop_nut = Concentration/sum_nut) %>%
+  mutate(sum_check = sum(prop_nut)) -> All_data_stacks
+All_data_stacks$Individuals <- as.factor(All_data_stacks$Individuals)
+
+ggplot(All_data_stacks, aes(x = ID, y= prop_nut, group = Population, fill = Nutrients)) +
+    geom_bar(position = "stack", stat = 'identity') + theme_classic() + facet_grid(~Food*Population, switch = "x")
+
+```
